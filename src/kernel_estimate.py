@@ -1,34 +1,12 @@
 import numpy as np
 from qiskit.quantum_info import Statevector
-from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
-from qiskit import transpile
-
-# Try to import AerSimulator for optimization (optional)
-try:
-    from qiskit_aer import AerSimulator
-    HAS_AER = True
-except ImportError:
-    HAS_AER = False
 
 
 class KernelMatrix:
     """Class to compute the kernel matrix with optimized batch processing."""
-    
 
     @staticmethod
     def _get_statevectors(X, theta_params, circuit):
-        """
-        Efficiently compute statevectors for multiple data points using batch processing.
-        
-        Args:
-            X: Data matrix of shape (n_samples, n_features)
-            theta_params: Trainable parameters (theta)
-            circuit: Parameterized quantum circuit
-            
-        Returns:
-            Array of statevectors with shape (n_samples, 2**num_qubits)
-        """
         n_samples = X.shape[0]
         n_features = X.shape[1]
         
@@ -36,7 +14,7 @@ class KernelMatrix:
         data_params = list(circuit.parameters)[:n_features]
         theta_params_list = list(circuit.parameters)[n_features:]
         
-        # Build theta dictionary once - ensure Python floats for AerSimulator compatibility
+        # Build theta dictionary once
         theta_dict = {}
         for param, val in zip(theta_params_list, theta_params):
             # Convert numpy types to Python float
@@ -117,38 +95,10 @@ class KernelMatrix:
                     param_dict_j[theta_params_list[k]] = t
                 sv_j = Statevector.from_instruction(circuit.assign_parameters(param_dict_j))
 
-                # Compute squared overlap
+                # Compute squared inner product
                 kernel_matrix[i, j] = np.abs(np.vdot(sv_i.data, sv_j.data))**2
 
         return kernel_matrix
-
-
-    @staticmethod
-    def plot_kernel_matrix(kernel_matrix, title="Quantum Kernel Matrix", filename=None, cmap='Greys'):
-        """Plot the kernel matrix as a heatmap."""
-        import matplotlib.pyplot as plt
-        plt.imshow(kernel_matrix, cmap=cmap, interpolation='nearest')
-        plt.colorbar(label='Kernel Value')
-        plt.title(title)
-        if filename:
-            plt.savefig(filename)
-        plt.show()
-
-
-    @staticmethod
-    def plot_multi_kernel_matrices(matrices, titles, filename=None, cmap='Greys'):
-        """Plot multiple kernel matrices side by side."""
-        import matplotlib.pyplot as plt
-        n = len(matrices)
-        fig, axes = plt.subplots(1, n, figsize=(5 * n, 4))
-        for i in range(n):
-            ax = axes[i] if n > 1 else axes
-            im = ax.imshow(matrices[i], cmap=cmap, interpolation='nearest')
-            ax.set_title(titles[i])
-            fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        if filename:
-            plt.savefig(filename)
-        plt.show()
 
 
     

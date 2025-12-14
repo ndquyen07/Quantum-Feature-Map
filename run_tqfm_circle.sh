@@ -1,28 +1,31 @@
 #!/bin/bash
-#SBATCH --job-name=tqfm_circle
-#SBATCH --output=/home/%u/logs/tqfm_%j.out
-#SBATCH --error=/home/%u/logs/tqfm_%j.err
+#SBATCH --job-name=tqfm_circle_parallel
+#SBATCH --output=/home/%u/logs/tqfm_circle_%j.out
+#SBATCH --error=/home/%u/logs/tqfm_circle_%j.err
 #SBATCH --partition=batch
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=2048
-#SBATCH --array=1-5
+#SBATCH --cpus-per-task=3
+#SBATCH --mem=4096
+#SBATCH --array=1-20
 
+# Activate conda environment
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate svqsvm
 
-python3.13 main_tqfm_circle_kfold.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --type_ansatz RealAmplitudes --optimizer COBYLA --maxiter 50000
-    
 
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --type_ansatz TwoLocal --optimizer COBYLA --maxiter 100000
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 2 --type_ansatz TwoLocal --optimizer COBYLA --maxiter 100000
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 3 --type_ansatz TwoLocal --optimizer COBYLA --maxiter 100000
+python3.13 main_three_losses_parallel_circle.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --ansatz RealAmplitudes --maxiter 5000
 
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --type_ansatz RealAmplitudes --optimizer COBYLA --maxiter 100000
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 2 --type_ansatz RealAmplitudes --optimizer COBYLA --maxiter 100000
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 3 --type_ansatz RealAmplitudes --optimizer COBYLA --maxiter 100000
 
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --type_ansatz EfficientSU2 --optimizer COBYLA --maxiter 100000
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 2 --type_ansatz EfficientSU2 --optimizer COBYLA --maxiter 100000
-# python3.13 main_tqfm_cancer.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 3 --type_ansatz EfficientSU2 --optimizer COBYLA --maxiter 100000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --ansatz TwoLocal --optimizer COBYLA --maxiter 50000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 2 --ansatz TwoLocal --optimizer COBYLA --maxiter 50000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 3 --ansatz TwoLocal --optimizer COBYLA --maxiter 50000
+
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --ansatz RealAmplitudes --optimizer COBYLA --maxiter 50000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 2 --ansatz RealAmplitudes --optimizer COBYLA --maxiter 50000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 3 --ansatz RealAmplitudes --optimizer COBYLA --maxiter 50000
+
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 1 --ansatz EfficientSU2 --optimizer COBYLA --maxiter 50000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 2 --ansatz EfficientSU2 --optimizer COBYLA --maxiter 50000
+# python3.13 main_tqfm_moon.py --run_id ${SLURM_ARRAY_TASK_ID} --depth 3 --ansatz EfficientSU2 --optimizer COBYLA --maxiter 50000
+
