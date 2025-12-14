@@ -88,22 +88,22 @@ where `ψ(x) = U(x; θ*)|0⟩` is the quantum state encoded with optimal paramet
 ```
 SVQSVM1/
 ├── src/
-│   ├── feature_map.py          # TrainableQuantumFeatureMap class
-│   ├── classifier.py           # QuantumClassifier & ClassicalClassifier
-│   ├── kernel_estimate.py      # Quantum kernel matrix computation
-│   ├── paramertrized_circuit.py # Circuit templates (RealAmplitudes, etc.)
-│   ├── optimizer.py            # Optimizer configurations (COBYLA, SPSA, etc.)
-│   └── utils.py                # Utility functions
+│   ├── feature_map.py         
+│   ├── classifier.py           
+│   ├── kernel_estimate.py      
+│   ├── paramertrized_circuit.py 
+│   ├── optimizer.py            
+│   └── utils.py                
 ├── experiment/
-│   ├── analysis_losses.ipynb       # Depth-1 loss comparison
-│   ├── analysis_losses_depth8.ipynb # Depth-8 analysis
-│   └── analyze_moon_depth.ipynb    # Multi-depth analysis (1-8)
-├── main_three_losses_moons.py      # Main training script
-├── main_three_losses_parallel_moon.py  # Parallel training
-├── results_tqfm_losses/            # Saved model results (.pkl files)
-├── data/                           # Dataset storage
-├── environment.yml                 # Conda environment
-└── requirements.txt                # Python dependencies
+│   ├── analysis_losses.ipynb       
+│   ├── analysis_losses_depth8.ipynb 
+│   └── analyze_moon_depth.ipynb    
+├── main_three_losses_moons.py      
+├── main_three_losses_parallel_moon.py  
+├── results_tqfm_losses/            
+├── data/                           
+├── environment.yml                 
+└── requirements.txt                
 ```
 
 ---
@@ -112,32 +112,32 @@ SVQSVM1/
 
 ### 1. **Trace Distance**
 - **Formula**: Measures maximum distinguishability between quantum states
-- **Range**: [0, 1], where 1 = perfectly distinguishable
-- **Best for**: Maximum class separation
+- **Range**: [0, 1]
+
 
 ### 2. **Hilbert-Schmidt Distance**
 - **Formula**: Frobenius norm between density matrices
-- **Range**: [0, √2], normalized to [0, 1]
-- **Best for**: Smooth optimization landscape
+- **Range**: [0, 1]
+
 
 ### 3. **Inner Loss**
 - **Formula**: Average overlap with target computational basis states
-- **Range**: [0, 1], where 1 = perfect encoding
-- **Best for**: Direct encoding to computational basis
+- **Range**: [0, 1]
+
 
 ---
 
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.13+
 - Conda (recommended)
 
 ### Setup
 ```bash
 # Clone repository
 git clone https://github.com/ndquyen07/Quantum-Feature-Map.git
-cd SVQSVM1
+
 
 # Create conda environment
 conda env create -f environment.yml
@@ -148,7 +148,7 @@ pip install -r requirements.txt
 ```
 
 ### Dependencies
-- `qiskit >= 1.0.0`
+- `qiskit >= 1.4.0`
 - `qiskit-algorithms`
 - `scikit-learn`
 - `numpy`
@@ -176,7 +176,7 @@ X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=50, random_sta
 tqfm = TrainableQuantumFeatureMap(
     depth=1,
     type_ansatz="RealAmplitudes",
-    type_loss="hilbert_schmidt",
+    type_loss="trace_distance",
     warmup_iterations=200
 )
 
@@ -189,29 +189,20 @@ tqfm.fit(X_train, y_train, X_val, y_val, optimizer, circuit=circuit)
 best_params = tqfm.best_params  # θ* with highest val_acc
 
 # 4. Compute quantum kernel for SVM (Step 2: Find C*)
-from src.kernel_estimate import KernelMatrix
-X_combined = np.vstack([X_train, X_val])
-y_combined = np.hstack([y_train, y_val])
-
 kernel_train = KernelMatrix.compute_kernel_matrix_with_inner_products(
-    X_combined, X_combined, best_params, circuit
+    X, y, best_params, circuit
 )
 
-# 5. Train SVM with GridSearchCV
-from src.classifier import ClassicalClassifier
-train_acc, _, model, best_C = ClassicalClassifier.evaluate_model(
-    kernel_train, kernel_train, y_combined, y_combined
-)
 
-# 6. Evaluate on test sets (Step 3)
+# 5. Evaluate on test sets (Step 3)
 test_accuracies = []
 for seed in range(1, 6):
     X_test, y_test = make_moons(n_samples=200, noise=0.2, random_state=seed)
     kernel_test = KernelMatrix.compute_kernel_matrix_with_inner_products(
-        X_test, X_combined, best_params, circuit
+        X_test, X, best_params, circuit
     )
     _, test_acc, _, _ = ClassicalClassifier.evaluate_model(
-        kernel_train, kernel_test, y_combined, y_test
+        kernel_train, kernel_test, y, y_test
     )
     test_accuracies.append(test_acc)
 
@@ -233,7 +224,7 @@ python main_three_losses_parallel_moon.py
 
 ### Data Split Strategy
 ```
-Total Dataset: 350 samples
+Total Dataset:
 ├─ Training Phase: 150 samples
 │  ├─ Train: 100 samples (optimize θ)
 │  └─ Val:    50 samples (select best θ*)
@@ -247,13 +238,6 @@ Total Dataset: 350 samples
 - **Validation Accuracy**: SVM accuracy on validation set
 - **Distance Metrics**: Trace distance between class density matrices
 - **Overlap Metrics**: Self-overlap and cross-overlap values
-
-### Analysis Notebooks
-1. **`analysis_losses.ipynb`**: Compare three losses at depth=1
-2. **`analyze_moon_depth.ipynb`**: Analyze loss behavior across depths 1-8
-   - Mean loss vs depth (with error bars)
-   - Mean training accuracy vs depth
-   - Statistical comparison of stability
 
 ---
 
