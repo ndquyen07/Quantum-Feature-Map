@@ -81,30 +81,6 @@ where `ψ(x) = U(x; θ*)|0⟩` is the quantum state encoded with optimal paramet
   4. Report: **Mean ± Std accuracy** across all 5 test sets
 - **Why 5 Test Sets?**: Reduces variance in performance estimates, more reliable results
 
----
-
-## 📁 Project Structure
-
-```
-SVQSVM1/
-├── src/
-│   ├── feature_map.py         
-│   ├── classifier.py           
-│   ├── kernel_estimate.py      
-│   ├── paramertrized_circuit.py 
-│   ├── optimizer.py            
-│   └── utils.py                
-├── experiment/
-│   ├── analysis_losses.ipynb       
-│   ├── analysis_losses_depth8.ipynb 
-│   └── analyze_moon_depth.ipynb    
-├── main_three_losses_moons.py      
-├── main_three_losses_parallel_moon.py  
-├── results_tqfm_losses/            
-├── data/                           
-├── environment.yml                 
-└── requirements.txt                
-```
 
 ---
 
