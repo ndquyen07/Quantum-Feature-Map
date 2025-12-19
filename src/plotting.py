@@ -181,15 +181,113 @@ def save_all_metrics_accuracy(tqfm: TrainableQuantumFeatureMap, filename: str):
 
 
 def plot_metrics(tqfm : TrainableQuantumFeatureMap):
-    """Plot overlaps and distance metrics."""
-    plt.plot(tqfm.ovlA, label='Self-overlap Class A')
-    plt.plot(tqfm.ovlB, label='Self-overlap Class B')
-    plt.plot(tqfm.cross_ovl, label='Cross-overlap A-B')
-    plt.plot(tqfm.distance, label='Distance A-B')
-    plt.xlabel('Iteration')
-    plt.ylabel('Overlap')
-    plt.legend()
+    """Plot overlaps and distance metrics for multi-class scenarios."""
+    num_classes = len(tqfm.self_overlaps[0]) if tqfm.self_overlaps else 0
+    
+    if num_classes == 0:
+        print("No overlap data available.")
+        return
+    
+    # Get unique labels from the first pairwise_overlaps entry
+    if tqfm.pairwise_overlaps:
+        labels = sorted(set(int(k.split('_')[0]) for k in tqfm.pairwise_overlaps[0].keys()) | 
+                       set(int(k.split('_')[1]) for k in tqfm.pairwise_overlaps[0].keys()))
+    else:
+        labels = list(range(num_classes))
+    
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    
+    # Plot self-overlaps
+    ax1 = axes[0]
+    for i in range(num_classes):
+        self_ovl = [ovls[i] for ovls in tqfm.self_overlaps]
+        ax1.plot(self_ovl, label=f'Class {labels[i]}', linewidth=2)
+    ax1.set_xlabel('Iteration', fontsize=12)
+    ax1.set_ylabel('Self-overlap', fontsize=12)
+    ax1.set_title('Self-overlaps', fontsize=14, fontweight='bold')
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    
+    # Plot pairwise cross-overlaps
+    ax2 = axes[1]
+    for key in tqfm.pairwise_overlaps[0].keys():
+        cross_ovl = [ovls[key] for ovls in tqfm.pairwise_overlaps]
+        ax2.plot(cross_ovl, label=f'Classes {key}', linewidth=2)
+    ax2.set_xlabel('Iteration', fontsize=12)
+    ax2.set_ylabel('Cross-overlap', fontsize=12)
+    ax2.set_title('Pairwise Cross-overlaps', fontsize=14, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    
+    # Plot pairwise distances
+    ax3 = axes[2]
+    for key in tqfm.pairwise_distances[0].keys():
+        dist = [dists[key] for dists in tqfm.pairwise_distances]
+        ax3.plot(dist, label=f'Classes {key}', linewidth=2)
+    ax3.set_xlabel('Iteration', fontsize=12)
+    ax3.set_ylabel('Trace Distance', fontsize=12)
+    ax3.set_title('Pairwise Trace Distances', fontsize=14, fontweight='bold')
+    ax3.grid(True, alpha=0.3)
+    ax3.legend()
+    
+    plt.tight_layout()
     plt.show()
+
+
+def save_plot_metrics(tqfm: TrainableQuantumFeatureMap, filename: str):
+    """Save overlaps and distance metrics plot for multi-class scenarios."""
+    num_classes = len(tqfm.self_overlaps[0]) if tqfm.self_overlaps else 0
+    
+    if num_classes == 0:
+        print("No overlap data available.")
+        return
+    
+    # Get unique labels from the first pairwise_overlaps entry
+    if tqfm.pairwise_overlaps:
+        labels = sorted(set(int(k.split('_')[0]) for k in tqfm.pairwise_overlaps[0].keys()) | 
+                       set(int(k.split('_')[1]) for k in tqfm.pairwise_overlaps[0].keys()))
+    else:
+        labels = list(range(num_classes))
+    
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    
+    # Plot self-overlaps
+    ax1 = axes[0]
+    for i in range(num_classes):
+        self_ovl = [ovls[i] for ovls in tqfm.self_overlaps]
+        ax1.plot(self_ovl, label=f'Class {labels[i]}', linewidth=2)
+    ax1.set_xlabel('Iteration', fontsize=12)
+    ax1.set_ylabel('Self-overlap', fontsize=12)
+    ax1.set_title('Self-overlaps', fontsize=14, fontweight='bold')
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    
+    # Plot pairwise cross-overlaps
+    ax2 = axes[1]
+    for key in tqfm.pairwise_overlaps[0].keys():
+        cross_ovl = [ovls[key] for ovls in tqfm.pairwise_overlaps]
+        ax2.plot(cross_ovl, label=f'Classes {key}', linewidth=2)
+    ax2.set_xlabel('Iteration', fontsize=12)
+    ax2.set_ylabel('Cross-overlap', fontsize=12)
+    ax2.set_title('Pairwise Cross-overlaps', fontsize=14, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    
+    # Plot pairwise distances
+    ax3 = axes[2]
+    for key in tqfm.pairwise_distances[0].keys():
+        dist = [dists[key] for dists in tqfm.pairwise_distances]
+        ax3.plot(dist, label=f'Classes {key}', linewidth=2)
+    ax3.set_xlabel('Iteration', fontsize=12)
+    ax3.set_ylabel('Trace Distance', fontsize=12)
+    ax3.set_title('Pairwise Trace Distances', fontsize=14, fontweight='bold')
+    ax3.grid(True, alpha=0.3)
+    ax3.legend()
+    
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Metrics plot saved to {filename}")
 
 
 def save_plot_train_accuracy(tqfm : TrainableQuantumFeatureMap, filename: str):

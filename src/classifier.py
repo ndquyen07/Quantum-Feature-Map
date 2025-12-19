@@ -38,8 +38,6 @@ class QuantumClassifier:
 
     def fit(self, rhos, circuit, theta):
         self.rhos = rhos
-        self.rhoA = rhos[0]
-        self.rhoB = rhos[1]
         self.circuit = circuit
         self.theta_params = theta
 
@@ -49,26 +47,24 @@ class QuantumClassifier:
         rho_test = self.create_pure_state(X_test, self.theta_params, self.circuit)
         
         predictions = []
-        
         for i in range(len(rho_test)):
+            scores = []
             rho_x = rho_test[i]
             
             if metric == 'trace_distance':
-                score_A = -0.5 * np.sum(np.abs(np.linalg.eigh(rho_x - self.rhoA)[0]))
-                score_B = -0.5 * np.sum(np.abs(np.linalg.eigh(rho_x - self.rhoB)[0]))
+                for i in range(len(self.rhos)):
+                    score = -0.5 * np.sum(np.abs(np.linalg.eigh(rho_x - self.rhos[i])[0]))
+                    scores.append(score)
             elif metric == 'hilbert_schmidt':
-                score_A = np.trace(rho_x @ self.rhoA).real - np.trace(self.rhoA @ self.rhoA).real
-                score_B = np.trace(rho_x @ self.rhoB).real - np.trace(self.rhoB @ self.rhoB).real
+                for i in range(len(self.rhos)):
+                    score = np.trace(rho_x @ self.rhos[i]).real - np.trace(self.rhos[i] @ self.rhos[i]).real
+                    scores.append(score)
             elif metric == 'overlap':
-                score_A = np.trace(rho_x @ self.rhoA).real
-                score_B = np.trace(rho_x @ self.rhoB).real
+                for i in range(len(self.rhos)):
+                    score = np.trace(rho_x @ self.rhos[i]).real
+                    scores.append(score)
 
-            
-            if score_A > score_B:
-                predictions.append(0)
-            else:
-                predictions.append(1)
-                
+            predictions.append(scores.index(max(scores)))
         return np.array(predictions)
     
     

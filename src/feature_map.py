@@ -38,12 +38,12 @@ class TrainableQuantumFeatureMap:
         self.best_val_acc_qc_overlap = 0.0
         self.best_rhos_qc_overlap = None
 
+        # Initialize histories
         self.loss_history = []
         self.rhos = []
-        self.ovlA = []
-        self.ovlB = []
-        self.cross_ovl = []
-        self.distance = []
+        self.self_overlaps = [] 
+        self.pairwise_overlaps = [] 
+        self.pairwise_distances = [] 
         self.train_accuracy_history = []
         self.accuracy_iteration_indices = []
         self.val_accuracy_history = []
@@ -60,6 +60,9 @@ class TrainableQuantumFeatureMap:
         """
         Compute the loss function
         """
+        # Get actual unique class labels from data
+        unique_labels = np.unique(y)
+        
         if self.type_loss == "inner_loss":
             if num_classes == 2:
                 class_patterns = {0: '0', 1: '1'}
@@ -83,9 +86,9 @@ class TrainableQuantumFeatureMap:
 
         loss = 0.0
         rho_list = []
-        for j in range(num_classes):
-            # Select samples of class j
-            idx = np.where(y == j)[0]
+        for class_idx, label in enumerate(unique_labels):
+            # Select samples of this class
+            idx = np.where(y == label)[0]
             M_j = len(idx)
             
             rho = 0.0
@@ -105,8 +108,8 @@ class TrainableQuantumFeatureMap:
                 rho += 1/M_j * np.outer(psi.data, np.conj(psi.data))
 
                 if self.type_loss == "inner_loss":
-                    # Create basis state for class j
-                    pattern = class_patterns[j]
+                    # Create basis state for this class
+                    pattern = class_patterns[class_idx]
                     if self.num_qubits > len(pattern):
                         # Pad with zeros for remaining qubits
                         remaining_qubits = self.num_qubits - len(pattern)
@@ -121,17 +124,19 @@ class TrainableQuantumFeatureMap:
 
             rho_list.append(rho)
         
-        self_ovlA = np.trace(rho_list[0] @ rho_list[0])
-        self_ovlB = np.trace(rho_list[1] @ rho_list[1])
-        cross_ovl = np.trace(rho_list[0] @ rho_list[1])
-        distance = 0.5 * np.sum(np.abs(np.linalg.eigh(rho_list[0] - rho_list[1])[0]))
 
         
         # Compute loss based on selected type
         if self.type_loss == "trace_distance":
-            loss = 1 - 0.5 * np.sum(np.abs(np.linalg.eigh(rho_list[0] - rho_list[1])[0]))
+            for i in range(num_classes-1):
+                for j in range(i+1, num_classes):
+                    loss += np.sum(np.abs(np.linalg.eigh(rho_list[i] - rho_list[j])[0]))
+            loss = 1 - 1/((num_classes - 1) * num_classes) * loss
         elif self.type_loss == "hilbert_schmidt":
-            loss = 1 - (0.5*(self_ovlA + self_ovlB) - cross_ovl)
+            for i in range(num_classes-1):
+                for j in range(i+1, num_classes):
+                    loss += 1 - (0.5*(np.trace(rho_list[i] @ rho_list[i]) + np.trace(rho_list[j] @ rho_list[j])) - np.trace(rho_list[i] @ rho_list[j]))
+            loss = 1 - 1/((num_classes - 1) * num_classes) * loss
         elif self.type_loss == "inner_loss":
             loss = 1 - (loss / num_classes)
 
@@ -140,12 +145,24 @@ class TrainableQuantumFeatureMap:
 
         # Store loss history
         if store_history:
+            # Compute self-overlaps for all classes
+            self_overlaps = [float(np.real(np.trace(rho_list[i] @ rho_list[i]))) for i in range(num_classes)]
+            
+            # Compute pairwise cross-overlaps and distances
+            pairwise_ovl = {}
+            pairwise_dist = {}
+            for i in range(num_classes - 1):
+                for j in range(i+1, num_classes):
+                    cross_ovl = float(np.real(np.trace(rho_list[i] @ rho_list[j])))
+                    distance = float(np.real(0.5 * np.sum(np.abs(np.linalg.eigh(rho_list[i] - rho_list[j])[0]))))
+                    pairwise_ovl[f"{unique_labels[i]}_{unique_labels[j]}"] = cross_ovl
+                    pairwise_dist[f"{unique_labels[i]}_{unique_labels[j]}"] = distance
+
             self.rhos.append(rho_list)
             self.loss_history.append(loss)
-            self.ovlA.append(float(np.real(self_ovlA)))
-            self.ovlB.append(float(np.real(self_ovlB)))
-            self.cross_ovl.append(float(np.real(cross_ovl)))
-            self.distance.append(float(np.real(distance)))
+            self.self_overlaps.append(self_overlaps)
+            self.pairwise_overlaps.append(pairwise_ovl)
+            self.pairwise_distances.append(pairwise_dist)
 
 
             # Calculate training accuracy every 100 iterations
@@ -240,10 +257,9 @@ class TrainableQuantumFeatureMap:
         # Clear previous loss history
         self.loss_history = []
         self.rhos = []
-        self.ovlA = []
-        self.ovlB = []
-        self.cross_ovl = []
-        self.distance = []
+        self.self_overlaps = []
+        self.pairwise_overlaps = []
+        self.pairwise_distances = []
         self.train_accuracy_history = []
         self.accuracy_iteration_indices = []
         self.val_accuracy_history = []
@@ -321,10 +337,9 @@ class TrainableQuantumFeatureMap:
         """Get the best rhos for overlap metric."""
         return self.best_rhos_qc_overlap
     
-    def set_optimizer(self, optimizer: str, maxiter: int = 100):
-        """Set the optimizer and its parameters."""
+    def set_optimizer(self, optimizer):
+        """Set the optimizer."""
         self.optimizer = optimizer
-        self.maxiter = maxiter
 
 
 
