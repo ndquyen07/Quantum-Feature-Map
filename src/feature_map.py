@@ -1,6 +1,7 @@
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.quantum_info import Statevector
+from qiskit.quantum_info import Statevector, DensityMatrix
+from scipy.linalg import sqrtm
 
 class TrainableQuantumFeatureMap:
     """Trainable Quantum Feature Map (TQFM) implementation."""
@@ -16,6 +17,8 @@ class TrainableQuantumFeatureMap:
         self.init_theta = None
         self.num_classes = None
         self.circuit = None
+        self.class_patterns = None
+        self.basis_states = None
 
         self.X_train = None
         self.y_train = None
@@ -56,37 +59,88 @@ class TrainableQuantumFeatureMap:
         self.iteration_counter = 0
 
 
+    def choose_class_patterns(self, X, y):
+        """
+        Assign optimal basis states to each class based on inner product maximization.
+        """
+        unique_labels = np.unique(y)
+        num_basis_states = 2**self.num_qubits
+        
+        # Generate all basis states efficiently
+        basis_states = [format(n, f'0{self.num_qubits}b') for n in range(num_basis_states)]
+        
+        # Sample data points from each class for efficiency
+        class_samples = {
+            label: X[np.where(y == label)[0]]
+            for label in unique_labels
+        }
+
+        # Pre-compute circuit parameters structure
+        data_params = self.circuit.parameters[:X.shape[1]]
+        theta_params = self.circuit.parameters[X.shape[1]:]
+        
+        # Pre-assign theta parameters (constant across all samples)
+        theta_param_dict = {theta_params[k]: self.init_theta[k] for k in range(len(theta_params))}
+        circuit_with_theta = self.circuit.assign_parameters(theta_param_dict)
+        
+        # Calculate average inner products between class samples and basis states
+        inner_products = np.zeros((len(unique_labels), num_basis_states))
+        
+        for label_idx, label in enumerate(unique_labels):
+            samples = class_samples[label]
+            
+            # Accumulate probabilities across all samples
+            prob_sum = np.zeros(num_basis_states)
+            for x in samples:
+                # Build parameter dictionary
+                data_map = {data_params[k]: x[k] for k in range(len(data_params))}
+                bound_circ = circuit_with_theta.assign_parameters(data_map)
+
+                # Get statevector and compute probabilities for all basis states at once
+                psi = Statevector.from_instruction(bound_circ)
+                prob_sum += psi.probabilities()
+            
+            # Average probabilities across samples
+            inner_products[label_idx, :] = prob_sum / len(samples)
+
+        # Greedy assignment: iteratively select highest inner product
+        final_assignment = {}
+        
+        for _ in range(len(unique_labels)):
+            # Find maximum inner product
+            row_idx, col_idx = np.unravel_index(np.argmax(inner_products), inner_products.shape)
+            label = unique_labels[row_idx]
+            
+            # Assign basis state to class
+            final_assignment[label] = basis_states[col_idx]
+            
+            # Mark this class and basis state as used
+            inner_products[row_idx, :] = -np.inf
+            inner_products[:, col_idx] = -np.inf
+
+        return dict(sorted(final_assignment.items()))
+
+        
+
     def _loss(self, theta, X, y, circuit_template, num_classes, store_history: bool = True):
         """
         Compute the loss function
         """
-        # Get actual unique class labels from data
-        unique_labels = np.unique(y)
+        # Pre-compute circuit parameters structure
+        data_params = circuit_template.parameters[:X.shape[1]]
+        theta_params = circuit_template.parameters[X.shape[1]:]
         
-        if self.type_loss == "inner_loss":
-            if num_classes == 2:
-                class_patterns = {0: '0', 1: '1'}
-            elif num_classes == 3:
-                class_patterns = {0: '00', 1: '01', 2: '10'}
-            elif num_classes == 4:
-                class_patterns = {0: '00', 1: '01', 2: '10', 3: '11'}
-            elif num_classes == 5:
-                class_patterns = {0: '000', 1: '001', 2: '010', 3: '011', 4: '100'}
-            elif num_classes == 6:
-                class_patterns = {0: '000', 1: '001', 2: '010', 3: '011', 4: '100', 5: '101'}
-            elif num_classes == 7:
-                class_patterns = {0: '000', 1: '001', 2: '010', 3: '011', 4: '100', 5: '101', 6: '110'}
-            elif num_classes == 8:
-                class_patterns = {0: '000', 1: '001', 2: '010', 3: '011', 4: '100', 5: '101', 6: '110', 7: '111'}
-            elif num_classes == 9:
-                class_patterns = {0: '0000', 1: '0001', 2: '0010', 3: '0011', 4: '0100', 5: '0101', 6: '0110', 7: '0111', 8: '1000'}
-            elif num_classes == 10:
-                class_patterns = {0: '0000', 1: '0001', 2: '0010', 3: '0011', 4: '0100', 5: '0101', 6: '0110', 7: '0111', 8: '1000', 9: '1001'}
+        # Pre-assign theta parameters (constant for this loss evaluation)
+        theta_dict = {theta_params[k]: theta[k] for k in range(len(theta_params))}
+        circuit_with_theta = circuit_template.assign_parameters(theta_dict)
+        
 
-
+        
         loss = 0.0
         rho_list = []
-        for class_idx, label in enumerate(unique_labels):
+        unique_labels = np.unique(y)
+        
+        for label in unique_labels:
             # Select samples of this class
             idx = np.where(y == label)[0]
             M_j = len(idx)
@@ -94,51 +148,48 @@ class TrainableQuantumFeatureMap:
             rho = 0.0
             class_loss = 0.0
             for i in idx:
-                # Bind Data parameters
-                param_dict = {}
-                for k in range(X.shape[1]):
-                    param_dict[circuit_template.parameters[k]] = X[i, k]
-                # Bind Theta parameters
-                theta_params = list(circuit_template.parameters)[X.shape[1]:]
-                for k, t in enumerate(theta):
-                    param_dict[theta_params[k]] = t
-                # Get statevector
-                psi = Statevector.from_instruction(circuit_template.assign_parameters(param_dict))
+                # Bind only data parameters
+                data_dict = {data_params[k]: X[i, k] for k in range(len(data_params))}
+                psi = Statevector.from_instruction(circuit_with_theta.assign_parameters(data_dict))
+                
                 # Get rho
                 rho += 1/M_j * np.outer(psi.data, np.conj(psi.data))
 
-                if self.type_loss == "inner_loss":
-                    # Create basis state for this class
-                    pattern = class_patterns[class_idx]
-                    if self.num_qubits > len(pattern):
-                        # Pad with zeros for remaining qubits
-                        remaining_qubits = self.num_qubits - len(pattern)
-                        pattern = pattern + '0' * remaining_qubits
-                    
-                    y_j = Statevector.from_label(pattern)
-                    inner_product = np.abs(np.vdot(psi.data, y_j.data))**2
+                if self.type_loss == "inner_loss" or self.type_loss == "inner_old_loss":
+                    # Use pre-computed basis state for this class
+                    inner_product = np.abs(np.vdot(psi.data, self.basis_states[label].data))**2
                     class_loss += inner_product
 
-            if self.type_loss == "inner_loss":        
+            if self.type_loss == "inner_loss" or self.type_loss == "inner_old_loss":        
                 loss += class_loss / M_j
 
             rho_list.append(rho)
         
 
-        
         # Compute loss based on selected type
-        if self.type_loss == "trace_distance":
+        if self.type_loss == "trace_new":
+            for label_idx, label in enumerate(unique_labels):
+                loss += np.sum(np.abs(np.linalg.eigh(rho_list[label_idx] - self.basis_states[label].data)[0]))
+            loss = 0.5/num_classes * loss
+        elif self.type_loss == "hilbert_schmidt_new":
+            for label_idx, label in enumerate(unique_labels):
+                loss += np.trace((rho_list[label_idx] - self.basis_states[label].data)**2)
+            loss = 0.5/num_classes * loss
+        elif self.type_loss == "trace_distance":
             for i in range(num_classes-1):
                 for j in range(i+1, num_classes):
                     loss += np.sum(np.abs(np.linalg.eigh(rho_list[i] - rho_list[j])[0]))
             loss = 1 - 1/((num_classes - 1) * num_classes) * loss
+
         elif self.type_loss == "hilbert_schmidt":
             for i in range(num_classes-1):
                 for j in range(i+1, num_classes):
-                    loss += 1 - (0.5*(np.trace(rho_list[i] @ rho_list[i]) + np.trace(rho_list[j] @ rho_list[j])) - np.trace(rho_list[i] @ rho_list[j]))
+                    loss += np.trace((rho_list[i] - rho_list[j])**2)
             loss = 1 - 1/((num_classes - 1) * num_classes) * loss
-        elif self.type_loss == "inner_loss":
+
+        elif self.type_loss == "inner_loss" or self.type_loss == "inner_old_loss":
             loss = 1 - (loss / num_classes)
+
 
 
         loss = float(np.real(loss))
@@ -153,7 +204,7 @@ class TrainableQuantumFeatureMap:
             pairwise_dist = {}
             for i in range(num_classes - 1):
                 for j in range(i+1, num_classes):
-                    cross_ovl = float(np.real(np.trace(rho_list[i] @ rho_list[j])))
+                    cross_ovl = float(np.real(np.trace(sqrtm(sqrtm(rho_list[i]) @ rho_list[j] @ sqrtm(rho_list[i])))))
                     distance = float(np.real(0.5 * np.sum(np.abs(np.linalg.eigh(rho_list[i] - rho_list[j])[0]))))
                     pairwise_ovl[f"{unique_labels[i]}_{unique_labels[j]}"] = cross_ovl
                     pairwise_dist[f"{unique_labels[i]}_{unique_labels[j]}"] = distance
@@ -227,7 +278,7 @@ class TrainableQuantumFeatureMap:
         return loss
 
 
-    def fit(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray, optimizer, init_theta: np.ndarray=None, circuit: QuantumCircuit=None) -> float:
+    def fit(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray, optimizer, init_theta: np.ndarray=None, circuit: QuantumCircuit=None) -> None:
         """Fit the quantum feature map to the data."""
         self.X_train = X_train
         self.y_train = y_train
@@ -248,11 +299,36 @@ class TrainableQuantumFeatureMap:
         if init_theta is None:
             num_params = len(self.circuit.parameters) - self.num_qubits
             self.init_theta = np.random.uniform(-np.pi, np.pi, num_params)
-            # self.init_theta = np.zeros((num_params,))
         else:
             self.init_theta = init_theta
 
         print(self.init_theta)
+        
+        # Compute class patterns once if using inner_loss
+        if self.type_loss == "inner_loss" or self.type_loss == "trace_new" or self.type_loss == "hilbert_schmidt_new":
+            self.class_patterns = self.choose_class_patterns(X_train, y_train)
+            print(f"Class patterns: {self.class_patterns}")
+        elif self.type_loss == "inner_old_loss":
+            if self.num_classes == 2:
+                self.class_patterns = {0: '00', 1: '01'}
+            elif self.num_classes == 3:
+                self.class_patterns = {0: '00', 1: '01', 2: '10'}
+            elif self.num_classes == 4:
+                self.class_patterns = {0: '00', 1: '01', 2: '10', 3: '11'}
+            print(f"Class patterns: {self.class_patterns}")
+            
+        else:
+            self.class_patterns = None
+
+
+        # Pre-compute basis state for inner_loss if needed
+        if self.type_loss == "inner_loss" or self.type_loss == "inner_old_loss":
+            self.basis_states = {label: Statevector.from_label(self.class_patterns[label]) 
+                           for label in np.unique(y_train)}
+        elif self.type_loss == "trace_new" or self.type_loss == "hilbert_schmidt_new":
+            self.basis_states = {label: DensityMatrix(Statevector.from_label(self.class_patterns[label])).data
+                           for label in np.unique(y_train)}
+        
         
         # Clear previous loss history
         self.loss_history = []

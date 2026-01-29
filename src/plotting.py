@@ -1,4 +1,4 @@
-from src.feature_map import TrainableQuantumFeatureMap
+from src.feature_map_1 import TrainableQuantumFeatureMap
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -335,8 +335,7 @@ def plot_landscape_1d(tqfm : TrainableQuantumFeatureMap, param_idx: int = 0, gri
     for i in range(grid_points):
         theta_temp = theta_base.copy()
         theta_temp[param_idx] = param_vals[i]
-        loss_vals[i] = tqfm._loss(theta_temp, tqfm.X_train, tqfm.y_train, 
-                                    tqfm.circuit, tqfm.num_classes, store_history=False)
+        loss_vals[i] = tqfm._loss(theta_temp, store_history=False)
     
     # Create plot
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -348,7 +347,7 @@ def plot_landscape_1d(tqfm : TrainableQuantumFeatureMap, param_idx: int = 0, gri
     
     # Mark initial point if available
     if tqfm.init_theta is not None:
-        init_loss = tqfm._loss(theta_base, tqfm.X_train, tqfm.y_train, tqfm.circuit, tqfm.num_classes, store_history=False)
+        init_loss = tqfm._loss(theta_base, store_history=False)
         ax.scatter([tqfm.init_theta[param_idx]], [init_loss],
                     color='yellow', s=150, marker='o', 
                     edgecolors='black', linewidths=2,
@@ -398,8 +397,7 @@ def save_landscape_1d(tqfm : TrainableQuantumFeatureMap, filename: str, param_id
     for i in range(grid_points):
         theta_temp = theta_base.copy()
         theta_temp[param_idx] = param_vals[i]
-        loss_vals[i] = tqfm._loss(theta_temp, tqfm.X_train, tqfm.y_train, 
-                                    tqfm.circuit, tqfm.num_classes, store_history=False)
+        loss_vals[i] = tqfm._loss(theta_temp, store_history=False)
     
     # Create plot
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -411,8 +409,7 @@ def save_landscape_1d(tqfm : TrainableQuantumFeatureMap, filename: str, param_id
     
     # Mark initial point if available
     if tqfm.init_theta is not None:
-        init_loss = tqfm._loss(theta_base, tqfm.X_train, tqfm.y_train, 
-                                tqfm.circuit, tqfm.num_classes, store_history=False)
+        init_loss = tqfm._loss(theta_base, store_history=False)
         ax.scatter([tqfm.init_theta[param_idx]], [init_loss],
                     color='yellow', s=150, marker='o', 
                     edgecolors='black', linewidths=2,
@@ -472,8 +469,7 @@ def plot_landscape_2d(tqfm : TrainableQuantumFeatureMap, param_idx1: int = 0, pa
             theta_temp = theta_base.copy()
             theta_temp[param_idx1] = P1[i, j]
             theta_temp[param_idx2] = P2[i, j]
-            Loss[i, j] = tqfm._loss(theta_temp, tqfm.X_train, tqfm.y_train, 
-                                    tqfm.circuit, tqfm.num_classes, store_history=False)
+            Loss[i, j] = tqfm._loss(theta_temp, store_history=False)
     
     # Create 3D surface plot
     fig = plt.figure(figsize=(12, 5))
@@ -556,8 +552,7 @@ def save_landscape_2d(tqfm : TrainableQuantumFeatureMap, filename: str, param_id
             theta_temp = theta_base.copy()
             theta_temp[param_idx1] = P1[i, j]
             theta_temp[param_idx2] = P2[i, j]
-            Loss[i, j] = tqfm._loss(theta_temp, tqfm.X_train, tqfm.y_train, 
-                                    tqfm.circuit, tqfm.num_classes, store_history=False)
+            Loss[i, j] = tqfm._loss(theta_temp, store_history=False)
     
     # Create 3D surface plot
     fig = plt.figure(figsize=(12, 5))

@@ -5,6 +5,34 @@ class ParametrizedCircuit:
     """Class to create parameterized quantum circuits (ansatz)."""
 
     @staticmethod
+    def Universal_circuit(num_qubits, depth) -> QuantumCircuit:
+        qc = QuantumCircuit(num_qubits)
+
+        data_params = ParameterVector('x', length=num_qubits)
+        # Calculate total theta parameters needed: num_qubits for each layer (depth + 1)
+        num_gates = 3
+        total_theta_params = num_qubits * depth * num_gates * 2
+        print(f"Total theta params (Universal): {total_theta_params}")
+        theta_params = ParameterVector('θ', length=total_theta_params)
+        param_idx = 0
+
+        # Layers of parameterized rotations and entangling gates
+        for _ in range(depth):
+            for i in range(num_qubits):
+                qc.rz(theta_params[param_idx] * data_params[i] + theta_params[param_idx+1], i)
+                param_idx += 2
+            for i in range(num_qubits):
+                qc.ry(theta_params[param_idx] * data_params[i] + theta_params[param_idx+1], i)
+                param_idx += 2
+            for i in range(num_qubits):
+                qc.rz(theta_params[param_idx] * data_params[i] + theta_params[param_idx+1], i)
+                param_idx += 2
+            for i in range(num_qubits - 1):
+                qc.cx(i, i + 1)
+        return qc
+    
+
+    @staticmethod
     def TwoLocal_circuit(num_qubits, depth) -> QuantumCircuit:
         qc = QuantumCircuit(num_qubits)
 
@@ -12,6 +40,7 @@ class ParametrizedCircuit:
         # Calculate total theta parameters needed: num_qubits for each layer (depth + 1)
         num_gates = 2
         total_theta_params = (num_qubits * 2 + num_qubits * depth * num_gates) * 2
+        print("Total theta params (TwoLocal):", total_theta_params)
         theta_params = ParameterVector('θ', length=total_theta_params)
         param_idx = 0
 
@@ -44,6 +73,7 @@ class ParametrizedCircuit:
         # Calculate total theta parameters needed: num_qubits for each layer (depth + 1)
         num_gates = 1
         total_theta_params = (num_qubits + num_qubits * depth * num_gates)*2
+        print(f"Total theta params (RealAmplitudes): {total_theta_params}")
         theta_params = ParameterVector('θ', length=total_theta_params)
         param_idx = 0
 
@@ -71,6 +101,7 @@ class ParametrizedCircuit:
         # Calculate total theta parameters needed: num_qubits for each layer (depth + 1)
         num_gates = 2
         total_theta_params = (num_qubits * 2 + num_qubits * depth * num_gates) * 2
+        print(f"Total theta params for EfficientSU2: {total_theta_params}")
         theta_params = ParameterVector('θ', length=total_theta_params)
         param_idx = 0
 

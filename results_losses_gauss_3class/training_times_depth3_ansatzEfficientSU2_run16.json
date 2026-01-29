@@ -1,0 +1,19 @@
+{
+  "total_parallel_time": 515.3824119567871,
+  "individual_training_times": {
+    "hilbert_schmidt": 510.1282687187195,
+    "pre_determine_inner": 513.8266265392303,
+    "log_likelihood_macro": 514.9613425731659
+  },
+  "configuration": {
+    "run_id": 16,
+    "depth": 3,
+    "type_ansatz": "EfficientSU2",
+    "optimizer_name": "COBYLA",
+    "maxiter": 2000,
+    "warmup_iterations": 200,
+    "n_samples": 200,
+    "test_size": 100
+  },
+  "timestamp": "2026-01-28 11:38:40"
+}
